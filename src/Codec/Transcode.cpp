@@ -401,7 +401,7 @@ FFmpegDecoder::FFmpegDecoder(const Track::Ptr &track, int thread_num) {
         if (thread_num <= 0) {
             av_dict_set(&dict, "threads", "auto", 0);
         } else {
-            av_dict_set(&dict, "threads", to_string(MIN(thread_num, thread::hardware_concurrency())).data(), 0);
+            av_dict_set(&dict, "threads", to_string(MIN((unsigned int)thread_num, thread::hardware_concurrency())).data(), 0);
         }
         av_dict_set(&dict, "zerolatency", "1", 0);
         av_dict_set(&dict, "strict", "-2", 0);
@@ -435,7 +435,7 @@ FFmpegDecoder::FFmpegDecoder(const Track::Ptr &track, int thread_num) {
 FFmpegDecoder::~FFmpegDecoder() {
     stopThread(true);
     if (_do_merger) {
-        _merger.inputFrame(nullptr, [&](uint32_t dts, uint32_t pts, const Buffer::Ptr &buffer, bool have_idr) {
+        _merger.inputFrame(nullptr, [&](uint64_t dts, uint64_t pts, const Buffer::Ptr &buffer, bool have_idr) {
             decodeFrame(buffer->data(), buffer->size(), dts, pts, false);
         });
     }
@@ -463,7 +463,7 @@ void FFmpegDecoder::flush() {
 
 bool FFmpegDecoder::inputFrame_l(const Frame::Ptr &frame, bool live, bool enable_merge) {
     if (_do_merger && enable_merge) {
-        return _merger.inputFrame(frame, [&](uint32_t dts, uint32_t pts, const Buffer::Ptr &buffer, bool have_idr) {
+        return _merger.inputFrame(frame, [&](uint64_t dts, uint64_t pts, const Buffer::Ptr &buffer, bool have_idr) {
             decodeFrame(buffer->data(), buffer->size(), dts, pts, live);
         });
     }
@@ -489,7 +489,7 @@ bool FFmpegDecoder::inputFrame(const Frame::Ptr &frame, bool live, bool async, b
     });
 }
 
-bool FFmpegDecoder::decodeFrame(const char *data, size_t size, uint32_t dts, uint32_t pts, bool live) {
+bool FFmpegDecoder::decodeFrame(const char *data, size_t size, uint64_t dts, uint64_t pts, bool live) {
     TimeTicker2(30, TraceL);
 
     auto pkt = alloc_av_packet();
