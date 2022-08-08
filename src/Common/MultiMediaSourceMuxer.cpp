@@ -20,8 +20,8 @@
 #include "FMP4/FMP4MediaSourceMuxer.h"
 #ifdef ENABLE_WEBRTC
 // for RTC::kTranscodeAudio
-#include "WebRtcTransport.h"
-#include "RtcMediaSource.h"
+#include "webrtc/WebRtcTransport.h"
+#include "webrtc/RtcMediaSource.h"
 #endif
 using namespace std;
 using namespace toolkit;

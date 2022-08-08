@@ -220,10 +220,12 @@ extern std::vector<size_t> getBlockTypeSize();
 extern uint64_t getTotalMemBlockByType(int type);
 extern uint64_t getThisThreadMemBlockByType(int type) ;
 
+static void *web_api_tag = nullptr;
+
 static inline void addHttpListener(){
     GET_CONFIG(bool, api_debug, API::kApiDebug);
     //注册监听kBroadcastHttpRequest事件
-    NoticeCenter::Instance().addListener(nullptr, Broadcast::kBroadcastHttpRequest, [](BroadcastHttpRequestArgs) {
+    NoticeCenter::Instance().addListener(&web_api_tag, Broadcast::kBroadcastHttpRequest, [](BroadcastHttpRequestArgs) {
         auto it = s_map_api.find(parser.Url());
         if (it == s_map_api.end()) {
             return;
@@ -368,6 +370,7 @@ Value makeMediaSourceJson(MediaSource &media){
     return item;
 }
 
+#if defined(ENABLE_RTPPROXY)
 uint16_t openRtpServer(uint16_t local_port, const string &stream_id, bool enable_tcp, const string &local_ip, bool re_use_port, uint32_t ssrc) {
     lock_guard<recursive_mutex> lck(s_rtpServerMapMtx);
     if (s_rtpServerMap.find(stream_id) != s_rtpServerMap.end()) {
@@ -399,6 +402,7 @@ bool closeRtpServer(const string &stream_id) {
     s_rtpServerMap.erase(it);
     return true;
 }
+#endif
 
 void getStatisticJson(const function<void(Value &val)> &cb) {
     auto obj = std::make_shared<Value>(objectValue);
@@ -1328,13 +1332,30 @@ void installWebApi() {
             invoker(200, headerOut, val.toStyledString());
         });
     });
-
+	
+    // 删除录像文件夹
+    // http://127.0.0.1/index/api/deleteRecordDirectroy?vhost=__defaultVhost__&app=live&stream=ss&period=2020-01-01
+    api_regist("/index/api/deleteRecordDirectory", [](API_ARGS_MAP) {
+        CHECK_SECRET();
+        CHECK_ARGS("vhost", "app", "stream");
+        auto record_path = Recorder::getRecordPath(Recorder::type_mp4, allArgs["vhost"], allArgs["app"], allArgs["stream"], allArgs["customized_path"]);
+        auto period = allArgs["period"];
+        record_path = record_path + period + "/";
+        int result = File::delete_file(record_path.data());
+        if (result) {
+            // 不等于0时代表失败
+            record_path = "delete error";
+        }
+        val["path"] = record_path;
+        val["code"] = result;
+    });
+	
     //获取录像文件夹列表或mp4文件列表
     //http://127.0.0.1/index/api/getMp4RecordFile?vhost=__defaultVhost__&app=live&stream=ss&period=2020-01
     api_regist("/index/api/getMp4RecordFile", [](API_ARGS_MAP){
         CHECK_SECRET();
         CHECK_ARGS("vhost", "app", "stream");
-        auto record_path = Recorder::getRecordPath(Recorder::type_mp4, allArgs["vhost"], allArgs["app"],allArgs["stream"]);
+        auto record_path = Recorder::getRecordPath(Recorder::type_mp4, allArgs["vhost"], allArgs["app"], allArgs["stream"], allArgs["customized_path"]);
         auto period = allArgs["period"];
 
         //判断是获取mp4文件列表还是获取文件夹列表
@@ -1680,10 +1701,16 @@ void unInstallWebApi(){
     }
 
     {
+        lock_guard<recursive_mutex> lck(s_proxyPusherMapMtx);
+        s_proxyPusherMap.clear();
+    }
+
+    {
 #if defined(ENABLE_RTPPROXY)
         RtpSelector::Instance().clear();
         lock_guard<recursive_mutex> lck(s_rtpServerMapMtx);
         s_rtpServerMap.clear();
 #endif
     }
+    NoticeCenter::Instance().delListener(&web_api_tag);
 }
