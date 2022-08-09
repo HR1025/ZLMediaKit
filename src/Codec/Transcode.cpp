@@ -1024,11 +1024,11 @@ public:
 
     ~FFmpegEncodedFrame() override {}
 
-    uint32_t dts() const override {
+    uint64_t dts() const override {
         return _pkt->dts;
     }
 
-    uint32_t pts() const override {
+    uint64_t pts() const override {
         if (abs(_pkt->dts - _pkt->pts) > 1000) {
             return dts();
         }
