@@ -37,6 +37,7 @@ ProtocolOption::ProtocolOption() {
     GET_CONFIG(bool, s_to_mp4, General::kPublishToMP4);
     GET_CONFIG(bool, s_enabel_audio, General::kEnableAudio);
     GET_CONFIG(bool, s_add_mute_audio, General::kAddMuteAudio);
+    GET_CONFIG(bool, s_mp4_as_player, Record::kMP4AsPlayer);
     GET_CONFIG(uint32_t, s_continue_push_ms, General::kContinuePushMS);
 #ifdef ENABLE_WEBRTC
     GET_CONFIG(bool, s_rtc_transcode, RTC::kTranscodeAudio);
@@ -50,6 +51,7 @@ ProtocolOption::ProtocolOption() {
     enable_audio = s_enabel_audio;
     add_mute_audio = s_add_mute_audio;
     continue_push_ms = s_continue_push_ms;
+    mp4_as_player = s_mp4_as_player;
 }
 
 static std::shared_ptr<MediaSinkInterface> makeRecorder(MediaSource &sender, const vector<Track::Ptr> &tracks, Recorder::type type, const string &custom_path, size_t max_second){
@@ -91,6 +93,7 @@ static string getTrackInfoStr(const TrackSource *track_src){
 }
 
 MultiMediaSourceMuxer::MultiMediaSourceMuxer(const string &vhost, const string &app, const string &stream, float dur_sec, const ProtocolOption &option) {
+    _option = option;
     _get_origin_url = [this, vhost, app, stream]() {
         auto ret = getOriginUrl(*MediaSource::NullMediaSource);
         if (!ret.empty()) {
@@ -171,6 +174,7 @@ int MultiMediaSourceMuxer::totalReaderCount() const {
 #if defined(ENABLE_MP4)
     if(_fmp4) ret += _fmp4->readerCount();
 #endif
+    if(_mp4) ret += _option.mp4_as_player;
     if(_hls) ret += _hls->readerCount();
 
 #if defined(ENABLE_RTPPROXY)
