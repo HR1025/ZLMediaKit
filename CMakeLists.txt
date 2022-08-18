@@ -415,8 +415,6 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 add_subdirectory(3rdpart)
 
-add_subdirectory(src)
-
 if(ENABLE_SRT)
   add_subdirectory(srt)
 endif()
@@ -424,6 +422,8 @@ endif()
 if(ENABLE_WEBRTC)
   add_subdirectory(webrtc)
 endif()
+
+add_subdirectory(src)
 
 if(ENABLE_API)
   add_subdirectory(api)
