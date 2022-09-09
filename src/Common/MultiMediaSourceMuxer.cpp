@@ -39,6 +39,7 @@ ProtocolOption::ProtocolOption() {
     GET_CONFIG(bool, s_add_mute_audio, General::kAddMuteAudio);
     GET_CONFIG(bool, s_mp4_as_player, Record::kMP4AsPlayer);
     GET_CONFIG(uint32_t, s_continue_push_ms, General::kContinuePushMS);
+    GET_CONFIG(bool, s_modify_stamp, General::kModifyStamp);
 #ifdef ENABLE_WEBRTC
     GET_CONFIG(bool, s_rtc_transcode, RTC::kTranscodeAudio);
     transcode_rtc_audio = s_rtc_transcode;
@@ -52,6 +53,7 @@ ProtocolOption::ProtocolOption() {
     add_mute_audio = s_add_mute_audio;
     continue_push_ms = s_continue_push_ms;
     mp4_as_player = s_mp4_as_player;
+    modify_stamp = s_modify_stamp;	
 }
 
 static std::shared_ptr<MediaSinkInterface> makeRecorder(MediaSource &sender, const vector<Track::Ptr> &tracks, Recorder::type type, const string &custom_path, size_t max_second){
@@ -105,6 +107,7 @@ const std::string &MultiMediaSourceMuxer::getStreamId() const {
 }
 
 MultiMediaSourceMuxer::MultiMediaSourceMuxer(const string &vhost, const string &app, const string &stream, float dur_sec, const ProtocolOption &option) {
+    _poller = EventPollerPool::Instance().getPoller();
     _vhost = vhost;
     _app = app;
     _stream_id = stream;
@@ -213,7 +216,12 @@ int MultiMediaSourceMuxer::totalReaderCount(MediaSource &sender) {
     if (!listener) {
         return totalReaderCount();
     }
-    return listener->totalReaderCount(sender);
+    try {
+        return listener->totalReaderCount(sender);
+    } catch (MediaSourceEvent::NotImplemented &) {
+        //listener未重载totalReaderCount
+        return totalReaderCount();
+    }
 }
 
 //此函数可能跨线程调用
@@ -314,6 +322,19 @@ bool MultiMediaSourceMuxer::stopSendRtp(MediaSource &sender, const string &ssrc)
 
 vector<Track::Ptr> MultiMediaSourceMuxer::getMediaTracks(MediaSource &sender, bool trackReady) const {
     return getTracks(trackReady);
+}
+
+EventPoller::Ptr MultiMediaSourceMuxer::getOwnerPoller(MediaSource &sender) {
+    auto listener = getDelegate();
+    if (!listener) {
+        return _poller;
+    }
+    try {
+        return listener->getOwnerPoller(sender);
+    } catch (MediaSourceEvent::NotImplemented &) {
+        // listener未重载getOwnerPoller
+        return _poller;
+    }
 }
 
 bool MultiMediaSourceMuxer::onTrackReady(const Track::Ptr &track) {
@@ -417,9 +438,8 @@ void MultiMediaSourceMuxer::resetTracks() {
 }
 
 bool MultiMediaSourceMuxer::onTrackFrame(const Frame::Ptr &frame_in) {
-    GET_CONFIG(bool, modify_stamp, General::kModifyStamp);
     auto frame = frame_in;
-    if (modify_stamp) {
+   if (_option.modify_stamp) {
         //开启了时间戳覆盖
         frame = std::make_shared<FrameStamp>(frame, _stamp[frame->getTrackType()],true);
     }

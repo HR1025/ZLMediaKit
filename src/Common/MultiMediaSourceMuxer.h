@@ -60,6 +60,9 @@ public:
 
     //断连续推延时，单位毫秒，默认采用配置文件
     uint32_t continue_push_ms;
+    
+    //时间戳修复这一路流标志位
+    bool modify_stamp;
 };
 
 class MultiMediaSourceMuxer : public MediaSourceEventInterceptor, public MediaSink, public std::enable_shared_from_this<MultiMediaSourceMuxer>{
@@ -157,6 +160,11 @@ public:
      */
     std::vector<Track::Ptr> getMediaTracks(MediaSource &sender, bool trackReady = true) const override;
 
+    /**
+     * 获取所属线程
+     */
+    toolkit::EventPoller::Ptr getOwnerPoller(MediaSource &sender) override;
+
     const std::string& getVhost() const;
     const std::string& getApp() const;
     const std::string& getStreamId() const;
@@ -205,6 +213,7 @@ private:
     std::shared_ptr<TSMediaSourceMuxer> _ts;
     std::shared_ptr<MediaSinkInterface> _mp4;
     std::shared_ptr<HlsRecorder> _hls;
+    toolkit::EventPoller::Ptr _poller;
 
     //对象个数统计
     toolkit::ObjectStatistic<MultiMediaSourceMuxer> _statistic;

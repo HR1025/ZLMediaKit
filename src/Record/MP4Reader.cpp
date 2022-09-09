@@ -235,12 +235,8 @@ bool MP4Reader::close(MediaSource &sender, bool force) {
         return false;
     }
     _timer.reset();
-    WarnL << sender.getSchema() << "/" << sender.getVhost() << "/" << sender.getApp() << "/" << sender.getId() << " " << force;
+    WarnL << sender.getUrl() << " " << force;
     return true;
-}
-
-int MP4Reader::totalReaderCount(MediaSource &sender) {
-    return _muxer ? _muxer->totalReaderCount() : sender.readerCount();
 }
 
 MediaOriginType MP4Reader::getOriginType(MediaSource &sender) const {

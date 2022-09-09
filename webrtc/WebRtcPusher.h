@@ -26,6 +26,9 @@ protected:
     void onDestory() override;
     void onRtcConfigure(RtcConfigure &configure) const override;
     void onRecvRtp(MediaTrack &track, const std::string &rid, mediakit::RtpPacket::Ptr rtp) override;
+    void onRtcpBye() override;
+    ////  dtls相关的回调 ////
+   void OnDtlsTransportClosed(const RTC::DtlsTransport *dtlsTransport) override;
 
 protected:
     ///////MediaSourceEvent override///////
@@ -40,9 +43,7 @@ protected:
     // 获取媒体源客户端相关信息
     std::shared_ptr<SockInfo> getOriginSock(mediakit::MediaSource &sender) const override;
     // 获取丢包率
-    int getLossRate(mediakit::MediaSource &sender,mediakit::TrackType type) override;
-    // 获取MediaSource归属线程
-    toolkit::EventPoller::Ptr getOwnerPoller(mediakit::MediaSource &sender) override;
+    float getLossRate(mediakit::MediaSource &sender,mediakit::TrackType type) override;
 
 private:
     WebRtcPusher(const EventPoller::Ptr &poller, const mediakit::RtspMediaSourceImp::Ptr &src,

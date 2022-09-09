@@ -353,6 +353,9 @@ void installWebHook(){
                 if (obj.isMember("mp4_as_player")) {
                     option.mp4_as_player = obj["mp4_as_player"].asBool();
                 }
+		if (obj.isMember("modify_stamp")) {
+                    option.modify_stamp = obj["modify_stamp"].asBool();
+                }
                 invoker(err, option);
             } else {
                 //推流鉴权失败
@@ -502,8 +505,17 @@ void installWebHook(){
         body["ip"] = sender.get_peer_ip();
         body["port"] = sender.get_peer_port();
         body["id"] = sender.getIdentifier();
+
+        // Hook回复立即关闭流
+        auto res_cb = [closePlayer](const Value &res, const string &err) {
+            bool flag = res["close"].asBool();
+            if (flag) {
+                closePlayer();
+            }
+        };
+
         //执行hook
-        do_http_hook(hook_stream_not_found, body, nullptr);
+        do_http_hook(hook_stream_not_found, body, res_cb);
     });
 
     static auto getRecordInfo = [](const RecordInfo &info) {

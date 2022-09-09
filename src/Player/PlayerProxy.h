@@ -59,7 +59,7 @@ private:
     MediaOriginType getOriginType(MediaSource &sender) const override;
     std::string getOriginUrl(MediaSource &sender) const override;
     std::shared_ptr<toolkit::SockInfo> getOriginSock(MediaSource &sender) const override;
-    toolkit::EventPoller::Ptr getOwnerPoller(MediaSource &sender) override;
+    float getLossRate(MediaSource &sender, TrackType type) override;
 
     void rePlay(const std::string &strUrl,int iFailedCnt);
     void onPlaySuccess();

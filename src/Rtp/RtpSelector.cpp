@@ -131,12 +131,12 @@ RtpProcessHelper::~RtpProcessHelper() {
 
 void RtpProcessHelper::attachEvent() {
     //主要目的是close回调触发时能把对象从RtpSelector中删除
-    _process->setListener(shared_from_this());
+    _process->setDelegate(shared_from_this());
 }
 
 bool RtpProcessHelper::close(MediaSource &sender, bool force) {
     //此回调在其他线程触发
-    if (!_process || (!force && _process->getTotalReaderCount())) {
+    if (!_process || (!force && _process->totalReaderCount(sender))) {
         return false;
     }
     auto parent = _parent.lock();
@@ -144,16 +144,8 @@ bool RtpProcessHelper::close(MediaSource &sender, bool force) {
         return false;
     }
     parent->delProcess(_stream_id, _process.get());
-    WarnL << "close media:" << sender.getSchema() << "/" << sender.getVhost() << "/" << sender.getApp() << "/" << sender.getId() << " " << force;
+    WarnL << "close media:" << sender.getUrl() << " " << force;
     return true;
-}
-
-int RtpProcessHelper::totalReaderCount(MediaSource &sender) {
-    return _process ? _process->getTotalReaderCount() : sender.totalReaderCount();
-}
-
-toolkit::EventPoller::Ptr RtpProcessHelper::getOwnerPoller(MediaSource &sender) {
-    return toolkit::EventPollerPool::Instance().getPoller();
 }
 
 RtpProcess::Ptr &RtpProcessHelper::getProcess() {

@@ -10,8 +10,7 @@ SrtTransportImp::SrtTransportImp(const EventPoller::Ptr &poller)
 SrtTransportImp::~SrtTransportImp() {
     InfoP(this);
     uint64_t duration = _alive_ticker.createdTime() / 1000;
-    WarnP(this) << (_is_pusher ? "srt 推流器(" : "srt 播放器(") << _media_info._vhost << "/" << _media_info._app << "/"
-                << _media_info._streamid << ")断开,耗时(s):" << duration;
+    WarnP(this) << (_is_pusher ? "srt 推流器(" : "srt 播放器(") << _media_info.shortUrl() << ")断开,耗时(s):" << duration;
 
     // 流量统计事件广播
     GET_CONFIG(uint32_t, iFlowThreshold, General::kFlowThreshold);
@@ -89,8 +88,7 @@ bool SrtTransportImp::parseStreamid(std::string &streamid) {
     _media_info._app = app;
     _media_info._streamid = stream_name;
 
-    TraceL << " vhost=" << _media_info._vhost << " app=" << _media_info._app << " streamid=" << _media_info._streamid
-           << " params=" << _media_info._param_strs;
+    TraceL << " mediainfo=" << _media_info.shortUrl() << " params=" << _media_info._param_strs;
 
     return true;
 }
@@ -115,8 +113,7 @@ bool SrtTransportImp::close(mediakit::MediaSource &sender, bool force) {
     if (!force && totalReaderCount(sender)) {
         return false;
     }
-    std::string err = StrPrinter << "close media:" << sender.getSchema() << "/" << sender.getVhost() << "/"
-                                 << sender.getApp() << "/" << sender.getId() << " " << force;
+    std::string err = StrPrinter << "close media:" << sender.getUrl() << " " << force;
     weak_ptr<SrtTransportImp> weak_self = static_pointer_cast<SrtTransportImp>(shared_from_this());
     getPoller()->async([weak_self, err]() {
         auto strong_self = weak_self.lock();
@@ -127,11 +124,6 @@ bool SrtTransportImp::close(mediakit::MediaSource &sender, bool force) {
         }
     });
     return true;
-}
-
-// 播放总人数
-int SrtTransportImp::totalReaderCount(mediakit::MediaSource &sender) {
-    return _muxer ? _muxer->totalReaderCount() : sender.readerCount();
 }
 
 // 获取媒体源类型
@@ -147,11 +139,6 @@ std::string SrtTransportImp::getOriginUrl(mediakit::MediaSource &sender) const {
 // 获取媒体源客户端相关信息
 std::shared_ptr<SockInfo> SrtTransportImp::getOriginSock(mediakit::MediaSource &sender) const {
     return static_pointer_cast<SockInfo>(getSession());
-}
-
-toolkit::EventPoller::Ptr SrtTransportImp::getOwnerPoller(MediaSource &sender){
-    auto session = getSession();
-    return session  ? session->getPoller() : EventPollerPool::Instance().getPoller();
 }
 
 void SrtTransportImp::emitOnPublish() {
@@ -236,6 +223,8 @@ void SrtTransportImp::doPlay() {
             assert(ts_src);
             ts_src->pause(false);
             strong_self->_ts_reader = ts_src->getRing()->attach(strong_self->getPoller());
+            weak_ptr<Session> weak_session = strong_self->getSession();
+            strong_self->_ts_reader->setGetInfoCB([weak_session]() { return weak_session.lock(); });
             strong_self->_ts_reader->setDetachCB([weak_self]() {
                 auto strong_self = weak_self.lock();
                 if (!strong_self) {
